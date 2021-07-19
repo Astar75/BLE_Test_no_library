@@ -1,0 +1,2 @@
+rootProject.name = "BLE Test"
+include ':app'
