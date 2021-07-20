@@ -17,10 +17,11 @@ class DeviceAdapter : RecyclerView.Adapter<DeviceAdapter.DeviceViewHolder>() {
         notifyDataSetChanged()
     }
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): DeviceViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.item_device, parent, false)
-        return DeviceViewHolder(view)
-    }
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) = DeviceViewHolder(
+        LayoutInflater
+            .from(parent.context)
+            .inflate(R.layout.item_device, parent, false)
+    )
 
     override fun onBindViewHolder(holder: DeviceViewHolder, position: Int) =
         holder.bind(items[position])
@@ -33,7 +34,7 @@ class DeviceAdapter : RecyclerView.Adapter<DeviceAdapter.DeviceViewHolder>() {
         private val textAddress = itemView.findViewById<TextView>(R.id.textAddress)
 
         fun bind(item: BluetoothDevice) {
-            textName.text = item.name ?: "Unnamed"
+            textName.text = item.name ?: itemView.context.getString(R.string.device_unnamed)
             textAddress.text = item.address
         }
     }

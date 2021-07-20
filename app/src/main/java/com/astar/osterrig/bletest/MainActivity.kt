@@ -21,7 +21,7 @@ class MainActivity : AppCompatActivity() {
             binding.buttonScan.text = getString(R.string.stop_scan)
             viewModel.startScan()
         } else {
-            Toast.makeText(this, "Фиаско потерплено!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.scan_error), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -57,23 +57,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startScan() {
-        // the new method
         locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
-
-        // the old method
-        /* if (ContextCompat.checkSelfPermission(baseContext, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this, Manifest.permission.ACCESS_FINE_LOCATION)) {
-                Toast.makeText(this, "Permission rationale", Toast.LENGTH_SHORT).show()
-                return
-            }
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-                requestPermissions(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), PERMISSION_CODE)
-            } else {
-                ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), PERMISSION_CODE)
-            }
-            return
-        }*/
     }
 
     private fun stopScan() {
@@ -85,20 +69,4 @@ class MainActivity : AppCompatActivity() {
             deviceAdapter.setItems(results.map { it.device })
         })
     }
-
-    // the old method
-    /*override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        if (requestCode == PERMISSION_CODE) {
-            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                viewModel.startScan()
-            } else {
-                Toast.makeText(this, "Фиаско потерплено!", Toast.LENGTH_SHORT).show()
-            }
-        }
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-    }*/
 }
