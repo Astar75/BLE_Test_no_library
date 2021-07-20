@@ -10,11 +10,16 @@ import androidx.recyclerview.widget.RecyclerView
 class DeviceAdapter : RecyclerView.Adapter<DeviceAdapter.DeviceViewHolder>() {
 
     private val items = ArrayList<BluetoothDevice>()
+    private var callback: Callback? = null
 
     fun setItems(newDevices: List<BluetoothDevice>) {
         this.items.clear()
         this.items.addAll(newDevices)
         notifyDataSetChanged()
+    }
+
+    fun addCallback(callback: Callback) {
+        this.callback = callback
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): DeviceViewHolder {
@@ -27,10 +32,18 @@ class DeviceAdapter : RecyclerView.Adapter<DeviceAdapter.DeviceViewHolder>() {
 
     override fun getItemCount() = items.size
 
+    interface Callback {
+        fun onItemClick(device: BluetoothDevice)
+    }
+
     inner class DeviceViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
 
         private val textName = itemView.findViewById<TextView>(R.id.textName)
         private val textAddress = itemView.findViewById<TextView>(R.id.textAddress)
+
+        init {
+            itemView.setOnClickListener { callback?.onItemClick(items[adapterPosition]) }
+        }
 
         fun bind(item: BluetoothDevice) {
             textName.text = item.name ?: "Unnamed"
