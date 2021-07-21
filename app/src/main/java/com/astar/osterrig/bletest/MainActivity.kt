@@ -2,59 +2,44 @@ package com.astar.osterrig.bletest
 
 import android.Manifest
 import android.bluetooth.*
+import android.graphics.Color
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.util.Log
+import android.view.View
+import android.widget.SeekBar
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.ColorInt
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import com.astar.osterrig.bletest.databinding.ActivityMainBinding
+import java.util.*
 
 class MainActivity : AppCompatActivity() {
 
+    private lateinit var device: BluetoothDevice
     private lateinit var binding: ActivityMainBinding
     private lateinit var viewModel: MainViewModel
     private val deviceAdapter = DeviceAdapter()
 
-    private var bluetoothGatt: BluetoothGatt? = null
+    private var serviceControlUuid: UUID = UUID.fromString("d4d4dc12-0493-44fa-bc55-477388a6565c")
+    private var characteristicControlUuid: UUID =
+        UUID.fromString("faba7480-acd6-4136-bac9-b4e812233e01")
 
+    private var serviceControl: BluetoothGattService? = null
+    private var characteristicControl: BluetoothGattCharacteristic? = null
+
+    private val characteristics by lazy {
+        ConnectionManager.servicesOnDevice(device)?.flatMap { service ->
+            service.characteristics ?: listOf()
+        } ?: listOf()
+    }
 
     private val onClickItemDevice = object : DeviceAdapter.Callback {
         override fun onItemClick(device: BluetoothDevice) {
-            connectToDevice(device)
-        }
-    }
-
-    private val gattCallback = object : BluetoothGattCallback() {
-        override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
-            val deviceAddress = gatt.device.address
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                if (newState == BluetoothGatt.STATE_CONNECTED) {
-                    showToastMainThread("Connected to $deviceAddress")
-                    bluetoothGatt = gatt
-                    Handler(Looper.getMainLooper()).post {
-                        bluetoothGatt?.discoverServices()
-                    }
-                } else if (newState == BluetoothGatt.STATE_DISCONNECTED) {
-                    showToastMainThread("Disconnected $deviceAddress")
-                    gatt.close()
-                }
-            } else {
-                showToastMainThread("Error $status encountered for $deviceAddress! Disconnecting...")
-                gatt.close()
-            }
-            super.onConnectionStateChange(gatt, status, newState)
-        }
-
-        override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
-            Log.w(
-                "BluetoothGattCallback",
-                "Discovered $ ${gatt.services.size} services for ${gatt.device.address}"
-            )
-            gatt.printGattTable()
-            super.onServicesDiscovered(gatt, status)
+            stopScan()
+            this@MainActivity.device = device
+            ConnectionManager.connect(device, this@MainActivity)
         }
     }
 
@@ -69,6 +54,57 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val onLightnessChanges = object : SeekBar.OnSeekBarChangeListener {
+        override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+            if (progress % 5 == 0) {
+                sendLightness(progress)
+            }
+        }
+
+        override fun onStartTrackingTouch(seekBar: SeekBar?) {
+
+        }
+
+        override fun onStopTrackingTouch(seekBar: SeekBar) {
+            sendLightness(seekBar.progress)
+        }
+    }
+
+    private fun sendLightness(lightness: Int) {
+        val command = byteArrayOf(0x1, lightness.toByte())
+        characteristicControl?.let {
+            ConnectionManager.writeCharacteristic(
+                device,
+                it, command
+            )
+        }
+    }
+
+    private val onClickColorButtonListener = View.OnClickListener {
+        when (it) {
+            binding.buttonRedColor -> sendColor(Color.RED)
+            binding.buttonYellowColor -> sendColor(Color.YELLOW)
+            binding.buttonGreenColor -> sendColor(Color.GREEN)
+            binding.buttonCyanColor -> sendColor(Color.CYAN)
+            binding.buttonBlueColor -> sendColor(Color.BLUE)
+        }
+    }
+
+    private fun sendColor(@ColorInt color: Int) {
+        val command = byteArrayOf(
+            0x16,
+            Color.red(color).toByte(),
+            Color.green(color).toByte(),
+            Color.blue(color).toByte()
+        )
+        characteristicControl?.let {
+            ConnectionManager.writeCharacteristic(
+                device,
+                it, command
+            )
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
@@ -76,12 +112,25 @@ class MainActivity : AppCompatActivity() {
 
         viewModel = ViewModelProvider(this).get(MainViewModel::class.java)
 
+        val connectionManagerListener = object : ConnectionManager.Callback {
+            override fun onServiceDiscover(services: MutableList<BluetoothGattService>) {
+                serviceControl = services.firstOrNull { it.uuid == serviceControlUuid }
+                serviceControl?.let { control ->
+                    characteristicControl =
+                        control.characteristics.firstOrNull { it.uuid == characteristicControlUuid }
+                }
+            }
+        }
+
+        ConnectionManager.addCallback(connectionManagerListener)
+
         setupViews()
         subscribe()
     }
 
     override fun onStop() {
         super.onStop()
+        ConnectionManager.teardownConnection(device)
         viewModel.stopScan()
     }
 
@@ -99,6 +148,15 @@ class MainActivity : AppCompatActivity() {
                 startScan()
             }
         }
+
+        buttonRedColor.setOnClickListener(onClickColorButtonListener)
+        buttonYellowColor.setOnClickListener(onClickColorButtonListener)
+        buttonGreenColor.setOnClickListener(onClickColorButtonListener)
+        buttonCyanColor.setOnClickListener(onClickColorButtonListener)
+        buttonBlueColor.setOnClickListener(onClickColorButtonListener)
+
+        seekBarIntensity.setOnSeekBarChangeListener(onLightnessChanges)
+
     }
 
     private fun startScan() {
@@ -113,20 +171,6 @@ class MainActivity : AppCompatActivity() {
         scanResultsLiveData.observe(this@MainActivity, { results ->
             deviceAdapter.setItems(results.map { it.device })
         })
-    }
-
-    private fun connectToDevice(device: BluetoothDevice) {
-        // TODO: 20.07.2021 connect to device
-        if (viewModel.isScanning()) {
-            viewModel.stopScan()
-        }
-        device.connectGatt(this, false, gattCallback)
-    }
-
-    private fun showToastMainThread(message: String) {
-        runOnUiThread {
-            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
-        }
     }
 
     private fun BluetoothGatt.printGattTable() {
@@ -147,24 +191,6 @@ class MainActivity : AppCompatActivity() {
                 "printGattTable",
                 "\nService ${service.uuid}\nCharacteristics:\n$characteristicsTable"
             )
-
         }
     }
-
-    private fun BluetoothGattCharacteristic.isReadable() : Boolean {
-        return containsProperty(BluetoothGattCharacteristic.PROPERTY_READ)
-    }
-
-    private fun BluetoothGattCharacteristic.isWritable() : Boolean {
-        return containsProperty(BluetoothGattCharacteristic.PROPERTY_WRITE)
-    }
-
-    private fun BluetoothGattCharacteristic.isWritableWithoutResponse(): Boolean {
-        return containsProperty(BluetoothGattCharacteristic.PROPERTY_WRITE_NO_RESPONSE)
-    }
-
-    private fun BluetoothGattCharacteristic.containsProperty(property: Int) : Boolean {
-        return properties and property != 0
-    }
 }
-

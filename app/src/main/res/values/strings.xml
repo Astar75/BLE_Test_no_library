@@ -3,4 +3,10 @@
     <string name="start_scan">Scan</string>
     <string name="stop_scan">Stop</string>
     <string name="scan_error_message">Фиаско потерплено!</string>
+    <string name="lightness">Яркость</string>
+    <string name="red">Red</string>
+    <string name="yellow">Yellow</string>
+    <string name="green">Green</string>
+    <string name="cyan">Cyan</string>
+    <string name="blue">Blue</string>
 </resources>
